@@ -1,0 +1,660 @@
+openapi: 3.0.3
+info:
+  title: Restaurant API
+  description: API REST para gestión de reservas de restaurante
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo local
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+    ValidationError:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [customer, admin]
+        created_at:
+          type: string
+          format: date-time
+
+    Table:
+      type: object
+      properties:
+        id:
+          type: integer
+        number:
+          type: integer
+        capacity:
+          type: integer
+        location:
+          type: string
+          enum: [interior, terraza]
+        is_active:
+          type: boolean
+
+    Reservation:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        table_id:
+          type: integer
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          example: "20:00"
+        guests:
+          type: integer
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        reservation_id:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [Sistema]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+
+  /api/auth/register:
+    post:
+      summary: Registrar nuevo usuario
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  example: Juan García
+                email:
+                  type: string
+                  format: email
+                  example: juan@example.com
+                password:
+                  type: string
+                  minLength: 6
+                  example: secret123
+      responses:
+        "201":
+          description: Usuario registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  token:
+                    type: string
+        "409":
+          description: Email ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /api/auth/login:
+    post:
+      summary: Iniciar sesión
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@restaurant.com
+                password:
+                  type: string
+                  example: password
+      responses:
+        "200":
+          description: Login correcto
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+                  token:
+                    type: string
+        "401":
+          description: Credenciales incorrectas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/me:
+    get:
+      summary: Obtener perfil del usuario autenticado
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: Token requerido o inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tables:
+    get:
+      summary: Listar mesas (con filtros de disponibilidad)
+      tags: [Mesas]
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+          description: Fecha para comprobar disponibilidad (YYYY-MM-DD)
+        - in: query
+          name: time
+          schema:
+            type: string
+          description: Hora para comprobar disponibilidad (HH:MM)
+        - in: query
+          name: guests
+          schema:
+            type: integer
+          description: Número mínimo de comensales
+        - in: query
+          name: location
+          schema:
+            type: string
+            enum: [interior, terraza]
+      responses:
+        "200":
+          description: Lista de mesas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tables:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Table"
+                  total:
+                    type: integer
+
+    post:
+      summary: Crear mesa (admin)
+      tags: [Mesas]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [number, capacity]
+              properties:
+                number:
+                  type: integer
+                  minimum: 1
+                capacity:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                location:
+                  type: string
+                  enum: [interior, terraza]
+                  default: interior
+      responses:
+        "201":
+          description: Mesa creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  table:
+                    $ref: "#/components/schemas/Table"
+        "403":
+          description: Se requiere rol admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tables/{id}:
+    patch:
+      summary: Actualizar mesa (admin)
+      tags: [Mesas]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                capacity:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                location:
+                  type: string
+                  enum: [interior, terraza]
+                is_active:
+                  type: boolean
+      responses:
+        "200":
+          description: Mesa actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  table:
+                    $ref: "#/components/schemas/Table"
+        "404":
+          description: Mesa no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reservations:
+    post:
+      summary: Crear reserva
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [table_id, date, time, guests]
+              properties:
+                table_id:
+                  type: integer
+                date:
+                  type: string
+                  format: date
+                  example: "2026-07-15"
+                time:
+                  type: string
+                  example: "21:00"
+                guests:
+                  type: integer
+                  minimum: 1
+                notes:
+                  type: string
+                  maxLength: 500
+      responses:
+        "201":
+          description: Reserva creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservation:
+                    $ref: "#/components/schemas/Reservation"
+        "400":
+          description: Capacidad insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Mesa ya reservada en ese horario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      summary: Listar todas las reservas (admin)
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Lista de reservas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reservation"
+                  page:
+                    type: integer
+        "403":
+          description: Se requiere rol admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reservations/me:
+    get:
+      summary: Mis reservas
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Lista de reservas del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Reservation"
+                  page:
+                    type: integer
+
+  /api/reservations/{id}:
+    get:
+      summary: Obtener reserva por ID
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Detalle de la reserva
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservation:
+                    $ref: "#/components/schemas/Reservation"
+        "403":
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Reserva no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    patch:
+      summary: Actualizar estado o notas de una reserva
+      tags: [Reservas]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, confirmed, cancelled]
+                notes:
+                  type: string
+                  maxLength: 500
+      responses:
+        "200":
+          description: Reserva actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservation:
+                    $ref: "#/components/schemas/Reservation"
+        "403":
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Reserva no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/reviews:
+    get:
+      summary: Listar reseñas con rating promedio
+      tags: [Reseñas]
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Lista de reseñas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Review"
+                  average_rating:
+                    type: number
+                    nullable: true
+                  page:
+                    type: integer
+
+    post:
+      summary: Crear reseña (solo para reservas confirmadas propias)
+      tags: [Reseñas]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reservation_id, rating]
+              properties:
+                reservation_id:
+                  type: integer
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "201":
+          description: Reseña creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  review:
+                    $ref: "#/components/schemas/Review"
+        "403":
+          description: Solo puedes reseñar reservas confirmadas propias
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Ya existe una reseña para esta reserva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

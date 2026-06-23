@@ -8,11 +8,11 @@ export async function createReview(req: AuthRequest, res: Response): Promise<voi
 
   // Verify reservation belongs to user and is not cancelled
   const reservation = await pool.query(
-    "SELECT * FROM reservations WHERE id = $1 AND user_id = $2 AND status != 'cancelled'",
+    "SELECT * FROM reservations WHERE id = $1 AND user_id = $2 AND status = 'confirmed'",
     [reservation_id, user_id]
   )
   if (reservation.rowCount === 0) {
-    res.status(403).json({ error: 'Solo puedes reseñar tus propias reservas completadas' })
+    res.status(403).json({ error: 'Solo puedes reseñar tus propias reservas confirmadas' })
     return
   }
 
