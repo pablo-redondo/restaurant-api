@@ -42,9 +42,11 @@ app.use((_req, res) => {
 
 app.use(errorHandler)
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
-  console.log(`📋 Health check: http://localhost:${PORT}/health`)
-})
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`)
+    console.log(`📋 Health check: http://localhost:${PORT}/health`)
+  })
+}
 
 export default app

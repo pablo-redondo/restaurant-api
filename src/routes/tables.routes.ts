@@ -11,7 +11,7 @@ router.get(
   '/',
   query('guests').optional().isInt({ min: 1 }).withMessage('guests debe ser un entero positivo'),
   query('location').optional().isIn(['interior', 'terraza']).withMessage('Ubicación inválida'),
-  query('date').optional().isDate().withMessage('Fecha inválida (YYYY-MM-DD)'),
+  query('date').optional().isISO8601({ strict: true }).withMessage('Fecha inválida (YYYY-MM-DD)'),
   query('time').optional().matches(/^\d{2}:\d{2}$/).withMessage('Hora en formato HH:MM'),
   validate,
   asyncHandler(getTables)
