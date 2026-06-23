@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import { body } from 'express-validator'
-import { register, login } from '../controllers/auth.controller.js'
+import { register, login, me } from '../controllers/auth.controller.js'
 import { validate } from '../middleware/validate.js'
 import { asyncHandler } from '../middleware/errorHandler.js'
+import { authenticate } from '../middleware/auth.js'
 
 const router = Router()
 
@@ -22,5 +23,7 @@ router.post(
   validate,
   asyncHandler(login)
 )
+
+router.get('/me', authenticate, asyncHandler(me))
 
 export default router

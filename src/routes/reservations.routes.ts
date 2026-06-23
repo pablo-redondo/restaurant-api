@@ -3,6 +3,7 @@ import { body, param, query } from 'express-validator'
 import {
   createReservation,
   getMyReservations,
+  getReservationById,
   updateReservation,
   getAllReservations,
 } from '../controllers/reservations.controller.js'
@@ -32,6 +33,14 @@ router.get(
   query('status').optional().isIn(['pending', 'confirmed', 'cancelled']).withMessage('Estado inválido'),
   validate,
   asyncHandler(getMyReservations)
+)
+
+router.get(
+  '/:id',
+  authenticate,
+  param('id').isInt({ min: 1 }).withMessage('ID de reserva inválido'),
+  validate,
+  asyncHandler(getReservationById)
 )
 
 router.patch(

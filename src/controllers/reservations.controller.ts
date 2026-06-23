@@ -58,6 +58,34 @@ export async function getMyReservations(req: AuthRequest, res: Response): Promis
   res.json({ reservations: result.rows, page: Number(page) })
 }
 
+export async function getReservationById(req: AuthRequest, res: Response): Promise<void> {
+  const { id } = req.params
+  const user_id = req.user!.id
+  const isAdmin = req.user!.role === 'admin'
+
+  const result = await pool.query(
+    `SELECT r.*, t.number as table_number, t.location, u.name as user_name, u.email as user_email
+     FROM reservations r
+     JOIN tables t ON r.table_id = t.id
+     JOIN users u ON r.user_id = u.id
+     WHERE r.id = $1`,
+    [id]
+  )
+
+  if (result.rowCount === 0) {
+    res.status(404).json({ error: 'Reserva no encontrada' })
+    return
+  }
+
+  const reservation = result.rows[0]
+  if (!isAdmin && reservation.user_id !== user_id) {
+    res.status(403).json({ error: 'No tienes permiso para ver esta reserva' })
+    return
+  }
+
+  res.json({ reservation })
+}
+
 export async function updateReservation(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params
   const { status, notes } = req.body
