@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes.js'
 import tablesRoutes from './routes/tables.routes.js'
 import reservationsRoutes from './routes/reservations.routes.js'
 import reviewsRoutes from './routes/reviews.routes.js'
+import { errorHandler } from './middleware/errorHandler.js'
 
 dotenv.config()
 
@@ -29,6 +30,8 @@ app.use('/api/reviews', reviewsRoutes)
 app.use((_req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' })
 })
+
+app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`)
