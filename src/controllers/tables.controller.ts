@@ -3,9 +3,9 @@ import pool from '../db/pool.js'
 import { AuthRequest } from '../types/index.js'
 
 export async function getTables(req: Request, res: Response): Promise<void> {
-  const { date, time, guests, location } = req.query
+  const { date, time, guests, location, includeInactive } = req.query
 
-  let query = 'SELECT * FROM tables WHERE is_active = true'
+  let query = `SELECT * FROM tables WHERE ${includeInactive ? '1=1' : 'is_active = true'}`
   const params: unknown[] = []
 
   if (location) {

@@ -6,7 +6,6 @@ export async function createReview(req: AuthRequest, res: Response): Promise<voi
   const { reservation_id, rating, comment } = req.body
   const user_id = req.user!.id
 
-  // Verify reservation belongs to user and is not cancelled
   const reservation = await pool.query(
     "SELECT * FROM reservations WHERE id = $1 AND user_id = $2 AND status = 'confirmed'",
     [reservation_id, user_id]
@@ -16,7 +15,6 @@ export async function createReview(req: AuthRequest, res: Response): Promise<voi
     return
   }
 
-  // Check no duplicate review
   const existing = await pool.query('SELECT id FROM reviews WHERE reservation_id = $1', [reservation_id])
   if (existing.rowCount && existing.rowCount > 0) {
     res.status(409).json({ error: 'Ya has dejado una reseña para esta reserva' })
@@ -34,20 +32,23 @@ export async function getReviews(req: AuthRequest, res: Response): Promise<void>
   const { page = 1, limit = 10 } = req.query
   const offset = (Number(page) - 1) * Number(limit)
 
-  const result = await pool.query(
-    `SELECT rv.*, u.name as user_name
-     FROM reviews rv
-     JOIN users u ON rv.user_id = u.id
-     ORDER BY rv.created_at DESC
-     LIMIT $1 OFFSET $2`,
-    [Number(limit), offset]
-  )
-
-  const avg = await pool.query('SELECT ROUND(AVG(rating)::numeric, 1) as average FROM reviews')
+  const [result, avgResult, countResult] = await Promise.all([
+    pool.query(
+      `SELECT rv.*, u.name as user_name
+       FROM reviews rv
+       JOIN users u ON rv.user_id = u.id
+       ORDER BY rv.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [Number(limit), offset]
+    ),
+    pool.query('SELECT ROUND(AVG(rating)::numeric, 1) as average FROM reviews'),
+    pool.query('SELECT COUNT(*) FROM reviews'),
+  ])
 
   res.json({
-    reviews: result.rows,
-    average_rating: avg.rows[0]?.average ?? null,
-    page: Number(page),
+    reviews:        result.rows,
+    average_rating: avgResult.rows[0]?.average ?? null,
+    total:          Number(countResult.rows[0].count),
+    page:           Number(page),
   })
 }

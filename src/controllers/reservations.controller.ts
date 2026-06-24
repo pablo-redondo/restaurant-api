@@ -6,7 +6,6 @@ export async function createReservation(req: AuthRequest, res: Response): Promis
   const { table_id, date, time, guests, notes } = req.body
   const user_id = req.user!.id
 
-  // Check table capacity
   const table = await pool.query('SELECT * FROM tables WHERE id = $1 AND is_active = true', [table_id])
   if (table.rowCount === 0) {
     res.status(404).json({ error: 'Mesa no encontrada' })
@@ -17,7 +16,6 @@ export async function createReservation(req: AuthRequest, res: Response): Promis
     return
   }
 
-  // Check availability
   const conflict = await pool.query(
     "SELECT id FROM reservations WHERE table_id = $1 AND date = $2 AND time = $3 AND status != 'cancelled'",
     [table_id, date, time]
@@ -115,21 +113,32 @@ export async function getAllReservations(req: AuthRequest, res: Response): Promi
   const { page = 1, limit = 20, date, status } = req.query
   const offset = (Number(page) - 1) * Number(limit)
 
-  let query = `
-    SELECT r.*, u.name as user_name, u.email as user_email, t.number as table_number, t.location
-    FROM reservations r
-    JOIN users u ON r.user_id = u.id
-    JOIN tables t ON r.table_id = t.id
-    WHERE 1=1
-  `
-  const params: unknown[] = []
+  const filterParams: unknown[] = []
+  let filterClause = ''
 
-  if (date) { params.push(date); query += ` AND r.date = $${params.length}` }
-  if (status) { params.push(status); query += ` AND r.status = $${params.length}` }
+  if (date)   { filterParams.push(date);   filterClause += ` AND r.date = $${filterParams.length}` }
+  if (status) { filterParams.push(status); filterClause += ` AND r.status = $${filterParams.length}` }
 
-  query += ` ORDER BY r.date ASC, r.time ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
-  params.push(Number(limit), offset)
+  const [result, countResult] = await Promise.all([
+    pool.query(
+      `SELECT r.*, u.name as user_name, u.email as user_email, t.number as table_number, t.location
+       FROM reservations r
+       JOIN users u ON r.user_id = u.id
+       JOIN tables t ON r.table_id = t.id
+       WHERE 1=1${filterClause}
+       ORDER BY r.date ASC, r.time ASC
+       LIMIT $${filterParams.length + 1} OFFSET $${filterParams.length + 2}`,
+      [...filterParams, Number(limit), offset]
+    ),
+    pool.query(
+      `SELECT COUNT(*) FROM reservations r WHERE 1=1${filterClause}`,
+      filterParams
+    ),
+  ])
 
-  const result = await pool.query(query, params)
-  res.json({ reservations: result.rows, page: Number(page) })
+  res.json({
+    reservations: result.rows,
+    page:  Number(page),
+    total: Number(countResult.rows[0].count),
+  })
 }

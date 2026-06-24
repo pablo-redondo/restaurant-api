@@ -13,6 +13,7 @@ router.get(
   query('location').optional().isIn(['interior', 'terraza']).withMessage('Ubicación inválida'),
   query('date').optional().isISO8601({ strict: true }).withMessage('Fecha inválida (YYYY-MM-DD)'),
   query('time').optional().matches(/^\d{2}:\d{2}$/).withMessage('Hora en formato HH:MM'),
+  query('includeInactive').optional().isBoolean().withMessage('includeInactive debe ser booleano'),
   validate,
   asyncHandler(getTables)
 )
