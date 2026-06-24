@@ -12,6 +12,7 @@ import reservationsRoutes from './routes/reservations.routes.js'
 import reviewsRoutes from './routes/reviews.routes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authLimiter, apiLimiter } from './middleware/rateLimit.js'
+import { migrate } from './db/migrate.js'
 
 dotenv.config()
 
@@ -43,10 +44,17 @@ app.use((_req, res) => {
 app.use(errorHandler)
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`)
-    console.log(`📋 Health check: http://localhost:${PORT}/health`)
-  })
+  migrate()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`)
+        console.log(`📋 Health check: http://localhost:${PORT}/health`)
+      })
+    })
+    .catch((err) => {
+      console.error('❌ Migration failed:', err)
+      process.exit(1)
+    })
 }
 
 export default app
