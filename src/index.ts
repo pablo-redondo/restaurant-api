@@ -21,6 +21,7 @@ const PORT = process.env.PORT ?? 3000
 
 const swaggerDoc = YAML.load(path.join(__dirname, '..', 'swagger.yaml'))
 
+app.set('trust proxy', 1)
 app.use(helmet())
 app.use(cors())
 app.use(express.json())
