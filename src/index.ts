@@ -12,16 +12,19 @@ import reservationsRoutes from './routes/reservations.routes.js'
 import reviewsRoutes from './routes/reviews.routes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { authLimiter, apiLimiter } from './middleware/rateLimit.js'
-import { migrate } from './db/migrate.js'
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT ?? 3000
 
+// En Render (y la mayoría de hostings) la app corre detrás de un proxy/balanceador
+// que añade X-Forwarded-For. Sin esto, express-rate-limit no puede identificar
+// la IP real del cliente de forma fiable y lo señala como un aviso en cada petición.
+app.set('trust proxy', 1)
+
 const swaggerDoc = YAML.load(path.join(__dirname, '..', 'swagger.yaml'))
 
-app.set('trust proxy', 1)
 app.use(helmet())
 app.use(cors())
 app.use(express.json())
@@ -45,17 +48,10 @@ app.use((_req, res) => {
 app.use(errorHandler)
 
 if (process.env.NODE_ENV !== 'test') {
-  migrate()
-    .then(() => {
-      app.listen(PORT, () => {
-        console.log(`🚀 Server running on http://localhost:${PORT}`)
-        console.log(`📋 Health check: http://localhost:${PORT}/health`)
-      })
-    })
-    .catch((err) => {
-      console.error('❌ Migration failed:', err)
-      process.exit(1)
-    })
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`)
+    console.log(`📋 Health check: http://localhost:${PORT}/health`)
+  })
 }
 
 export default app

@@ -10,8 +10,11 @@ const connectionString = process.env.DATABASE_URL
 
 const pool = connectionString
   ? new Pool({
+      // Render Postgres exige SSL en toda conexión externa: se fuerza siempre
+      // que se use DATABASE_URL, sin posibilidad de desactivarlo por variable
+      // de entorno (una DB_SSL=false accidental no debe poder romper esto).
       connectionString,
-      ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
+      ssl: { rejectUnauthorized: false },
     })
   : new Pool({
       host: process.env.DB_HOST,
