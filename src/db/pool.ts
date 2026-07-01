@@ -8,13 +8,16 @@ dotenv.config()
 // (DB_HOST, DB_PORT...) para desarrollo local con docker-compose.
 const connectionString = process.env.DATABASE_URL
 
+// SSL habilitado por defecto en ambos caminos: Render Postgres lo exige tanto
+// en conexiones por DATABASE_URL como por variables sueltas, así que el
+// comportamiento por defecto es "con SSL" y solo se desactiva si se pone
+// explícitamente DB_SSL=false (útil para Postgres local sin SSL).
+const sslEnabled = process.env.DB_SSL !== 'false'
+
 const pool = connectionString
   ? new Pool({
-      // Render Postgres exige SSL en toda conexión externa: se fuerza siempre
-      // que se use DATABASE_URL, sin posibilidad de desactivarlo por variable
-      // de entorno (una DB_SSL=false accidental no debe poder romper esto).
       connectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: sslEnabled ? { rejectUnauthorized: false } : false,
     })
   : new Pool({
       host: process.env.DB_HOST,
@@ -22,8 +25,15 @@ const pool = connectionString
       database: process.env.DB_NAME,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      ssl: sslEnabled ? { rejectUnauthorized: false } : false,
     })
+
+console.log(
+  connectionString
+    ? '🔌 Conectando a la base de datos vía DATABASE_URL'
+    : `🔌 Conectando a la base de datos vía DB_HOST (${process.env.DB_HOST ?? 'no definido'})`,
+  `· SSL ${sslEnabled ? 'activado' : 'desactivado'}`
+)
 
 pool.on('connect', () => console.log('✅ PostgreSQL connected'))
 pool.on('error', (err) => console.error('❌ PostgreSQL pool error:', err.message))
